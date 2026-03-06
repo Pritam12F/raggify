@@ -1,19 +1,7 @@
-"use client";
-
-import { useState } from "react";
 import { SourceInput } from "@/components/source-input";
 import { ChatWindow } from "@/components/chat-window";
-import { Message } from "@/components/chat-message";
 
 export default function Home() {
-  const [sourceText, setSourceText] = useState("");
-  const [messages] = useState<Message[]>([]);
-  const [isLoading] = useState(false);
-
-  const handleSubmit = () => {
-    // TODO: add submit logic
-  };
-
   return (
     <main className="relative flex h-screen flex-col items-center justify-center gap-4 overflow-hidden bg-zinc-950 px-6 py-5">
       {/* Decorative blobs */}
@@ -28,7 +16,9 @@ export default function Home() {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-violet-500 to-indigo-600 shadow-lg shadow-violet-900/40">
           <span className="text-sm font-bold text-white">R</span>
         </div>
-        <span className="text-lg font-bold tracking-tight text-white">Raggify</span>
+        <span className="text-lg font-bold tracking-tight text-white">
+          Raggify
+        </span>
         <span className="text-zinc-700">·</span>
         <span className="text-sm text-zinc-500">RAG-powered document chat</span>
         <div className="ml-auto flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1">
@@ -41,17 +31,12 @@ export default function Home() {
       <div className="relative flex flex-1 w-full max-w-6xl overflow-hidden rounded-2xl border border-zinc-700/50 bg-zinc-900/70 shadow-2xl shadow-black/60 backdrop-blur-xl">
         {/* Left panel — Source */}
         <div className="flex w-1/2 flex-col border-r border-zinc-700/50">
-          <SourceInput
-            value={sourceText}
-            onChange={setSourceText}
-            onSubmit={handleSubmit}
-            isLoading={isLoading}
-          />
+          <SourceInput />
         </div>
 
         {/* Right panel — Chat */}
         <div className="flex w-1/2 flex-col">
-          <ChatWindow messages={messages} />
+          <ChatWindow />
         </div>
       </div>
     </main>

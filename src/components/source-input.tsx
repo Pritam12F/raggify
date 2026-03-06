@@ -1,26 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadDialog } from "@/components/upload-dialog";
 import { Upload } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
 
-interface SourceInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
-  isLoading?: boolean;
-}
-
-export function SourceInput({
-  value,
-  onChange,
-  onSubmit,
-  isLoading,
-}: SourceInputProps) {
+export function SourceInput() {
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [isPending, startTransition] = useTransition();
 
+  const onChange = (text: string) => {
+    setValue(text);
+  };
+
+  const onSubmit = () => {
+    startTransition(async () => {
+      const res = await axios.post("/api/v1/index/text", { value });
+
+      if (res.status === 401) {
+        toast.error("Error occured:\n\n" + res.data.error);
+        return;
+      }
+
+      toast.success("Text was indexed!");
+    });
+  };
   return (
     <div className="flex h-full flex-col">
       {/* Panel header */}
@@ -46,9 +54,9 @@ export function SourceInput({
           <Button
             className="flex-1 border-0 bg-violet-600 text-white shadow-lg shadow-violet-900/30 hover:bg-violet-500"
             onClick={onSubmit}
-            disabled={isLoading}
+            disabled={isPending}
           >
-            {isLoading ? "Processing…" : "Process Source"}
+            {isPending ? "Processing…" : "Process Source"}
           </Button>
           <Button
             variant="outline"

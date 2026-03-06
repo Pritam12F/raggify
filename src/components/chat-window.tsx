@@ -12,10 +12,6 @@ import {
 } from "@/components/ui/select";
 import { MessageSquare } from "lucide-react";
 
-interface ChatWindowProps {
-  messages: Message[];
-}
-
 const MODELS = [
   { value: "gpt-4o", label: "GPT-4o" },
   { value: "gpt-4o-mini", label: "GPT-4o Mini" },
@@ -23,8 +19,9 @@ const MODELS = [
   { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
 ];
 
-export function ChatWindow({ messages }: ChatWindowProps) {
+export function ChatWindow() {
   const [model, setModel] = useState(MODELS[0].value);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   return (
     <div className="flex h-full flex-col">
@@ -64,7 +61,9 @@ export function ChatWindow({ messages }: ChatWindowProps) {
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-zinc-400">No messages yet</p>
+                <p className="text-sm font-medium text-zinc-400">
+                  No messages yet
+                </p>
                 <p className="mt-1 text-xs text-zinc-600">
                   Add a source above, then ask a question
                 </p>
