@@ -24,16 +24,23 @@ export function ChatMessage({ message }: ChatMessageProps) {
       )}
     >
       <Avatar className="h-8 w-8 shrink-0">
-        <AvatarFallback className="text-xs">
+        <AvatarFallback
+          className={cn(
+            "text-xs font-semibold",
+            isUser
+              ? "bg-violet-600 text-white"
+              : "bg-zinc-700 text-emerald-400"
+          )}
+        >
           {isUser ? "U" : "AI"}
         </AvatarFallback>
       </Avatar>
       <div
         className={cn(
-          "max-w-[70%] rounded-xl px-3 py-2 text-sm",
+          "max-w-[70%] rounded-xl px-3 py-2 text-sm leading-relaxed",
           isUser
-            ? "bg-primary text-primary-foreground"
-            : "bg-muted text-foreground"
+            ? "bg-violet-600 text-white shadow-md shadow-violet-900/30"
+            : "bg-zinc-800 text-zinc-100"
         )}
       >
         {message.content}
