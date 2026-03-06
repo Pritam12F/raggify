@@ -1,0 +1,5 @@
+{
+  "permissions": {
+    "allow": ["Bash(npx shadcn@latest add scroll-area --yes 2>&1)"]
+  }
+}
