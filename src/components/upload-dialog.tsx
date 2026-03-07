@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { ChangeEvent, useState, useTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Upload, Link } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
+import { isValidHttpUrl } from "@/lib/check-url";
 
 interface UploadDialogProps {
   open: boolean;
@@ -22,11 +25,71 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [tab, setTab] = useState<"pdf" | "url">("pdf");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [isFilePending, startFileTransition] = useTransition();
+  const [isURLPending, startURLTransition] = useTransition();
 
   const handleClose = () => {
     onOpenChange(false);
     setUrl("");
     setFile(null);
+  };
+
+  const uploadFile = () => {
+    startFileTransition(async () => {
+      const formData = new FormData();
+
+      formData.append("pdf", file!);
+
+      try {
+        await axios.post("/api/v1/index/pdf", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        toast.success("PDF was indexed!");
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const serverMessage = error.response?.data?.error;
+          toast.error(serverMessage ?? "Server error");
+        } else {
+          toast.error("Something went wrong");
+        }
+      }
+    });
+  };
+
+  const onFilePick = (e: ChangeEvent<HTMLInputElement, HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setFile(file);
+  };
+
+  const uploadURL = () => {
+    startURLTransition(async () => {
+      if (!isValidHttpUrl(url)) {
+        toast.error("Invalid url");
+
+        return;
+      }
+
+      try {
+        await axios.post("/api/v1/index/url", { url });
+
+        toast.success("Website was indexed");
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          const serverMessage = error.response?.data?.error;
+          toast.error(serverMessage ?? "Server error");
+        } else {
+          toast.error("Something went wrong");
+        }
+      }
+    });
   };
 
   return (
@@ -74,18 +137,22 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
                 <p className="text-sm font-medium text-zinc-200">
                   {file ? file.name : "Click to upload PDF"}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500">PDF files up to 10MB</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  PDF files up to 10MB
+                </p>
               </div>
               <input
                 type="file"
                 accept=".pdf"
                 className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={onFilePick}
               />
             </label>
           ) : (
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-zinc-300">Website URL</label>
+              <label className="text-sm font-medium text-zinc-300">
+                Website URL
+              </label>
               <Input
                 className="border-zinc-700 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:border-violet-500/50 focus-visible:ring-violet-500/20"
                 placeholder="https://example.com"
@@ -106,10 +173,26 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
           </Button>
           <Button
             className="bg-violet-600 text-white hover:bg-violet-500"
-            disabled={tab === "pdf" ? !file : !url}
-            onClick={handleClose}
+            disabled={
+              tab === "pdf" ? !file || isFilePending : !url || isURLPending
+            }
+            onClick={() => {
+              if (tab === "pdf") {
+                uploadFile();
+                handleClose();
+              } else {
+                uploadURL();
+                handleClose();
+              }
+            }}
           >
-            Upload
+            {tab === "pdf"
+              ? isFilePending
+                ? "Uploading..."
+                : "Upload PDF"
+              : isURLPending
+                ? "Uploading..."
+                : "Index URL"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -8,13 +8,6 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: Request) {
   const { value } = await request.json();
 
-  if (!value.trim().length || value.trim().length < 100) {
-    return NextResponse.json(
-      { error: "No input provided or too short input" },
-      { status: 301 },
-    );
-  }
-
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 100,
     chunkOverlap: 10,
@@ -43,13 +36,20 @@ export async function POST(request: Request) {
           type: "TEXT",
         },
       });
-      return NextResponse.json({
-        success: "Text was successfully indexed!",
-        id,
-      });
+
+      return NextResponse.json(
+        {
+          success: "Text entry was added to db!",
+          id,
+        },
+        { status: 200 },
+      );
     }
 
-    return NextResponse.json({ success: "Text entry already exists" });
+    return NextResponse.json(
+      { success: "Text entry already exists" },
+      { status: 201 },
+    );
   } catch (error) {
     console.error(error);
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       {
         error: error instanceof Error ? error.message : "Could not index text!",
       },
-      { status: 302 },
+      { status: 500 },
     );
   }
 }
