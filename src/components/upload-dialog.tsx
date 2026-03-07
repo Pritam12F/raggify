@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useState, useTransition } from "react";
+import { ChangeEvent, useContext, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Upload, Link } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { isValidHttpUrl } from "@/lib/check-url";
+import { LoadingContext } from "@/context/loading";
 
 interface UploadDialogProps {
   open: boolean;
@@ -25,8 +26,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [tab, setTab] = useState<"pdf" | "url">("pdf");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [isFilePending, startFileTransition] = useTransition();
-  const [isURLPending, startURLTransition] = useTransition();
+  const context = useContext(LoadingContext);
 
   const handleClose = () => {
     onOpenChange(false);
@@ -35,7 +35,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   };
 
   const uploadFile = () => {
-    startFileTransition(async () => {
+    context?.startFileTransition(async () => {
       const formData = new FormData();
 
       formData.append("pdf", file!);
@@ -51,6 +51,11 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       } catch (error) {
         if (axios.isAxiosError(error)) {
           const serverMessage = error.response?.data?.error;
+
+          if (error.status === 402) {
+            toast.error("This pdf already exists");
+            return;
+          }
           toast.error(serverMessage ?? "Server error");
         } else {
           toast.error("Something went wrong");
@@ -70,7 +75,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   };
 
   const uploadURL = () => {
-    startURLTransition(async () => {
+    context?.startURLTransition(async () => {
       if (!isValidHttpUrl(url)) {
         toast.error("Invalid url");
 
@@ -174,7 +179,9 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
           <Button
             className="bg-violet-600 text-white hover:bg-violet-500"
             disabled={
-              tab === "pdf" ? !file || isFilePending : !url || isURLPending
+              tab === "pdf"
+                ? !file || context?.isFilePending
+                : !url || context?.isURLPending
             }
             onClick={() => {
               if (tab === "pdf") {
@@ -187,10 +194,10 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
             }}
           >
             {tab === "pdf"
-              ? isFilePending
+              ? context?.isFilePending
                 ? "Uploading..."
                 : "Upload PDF"
-              : isURLPending
+              : context?.isURLPending
                 ? "Uploading..."
                 : "Index URL"}
           </Button>

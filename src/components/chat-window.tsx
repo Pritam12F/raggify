@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ChatMessage, Message } from "@/components/chat-message";
+import { useState, useTransition, useEffect } from "react";
+import { ChatMessage } from "@/components/chat-message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -11,17 +11,50 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MessageSquare } from "lucide-react";
+import { Entry, Message } from "@/generated/prisma/client";
 
-const MODELS = [
-  { value: "gpt-4o", label: "GPT-4o" },
-  { value: "gpt-4o-mini", label: "GPT-4o Mini" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-  { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
-];
+export interface EntryWithMessages extends Entry {
+  messages: Message[];
+}
 
 export function ChatWindow() {
-  const [model, setModel] = useState(MODELS[0].value);
+  const [sources, setSources] = useState<EntryWithMessages[]>([]);
+  const [selectedSource, setSelectedSource] = useState<{
+    id: string;
+    title: string;
+  }>();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isPending, startTransition] = useTransition();
+
+  const fetchSources = () => {
+    startTransition(async () => {
+      const res = await fetch("/api/v1/entries");
+      const entries = (await res.json()).entries as EntryWithMessages[];
+
+      setSources(entries ?? []);
+      setSelectedSource({
+        id: entries[0].id,
+        title: entries[0].title ?? "Text",
+      });
+
+      setMessages([...entries[0].messages]);
+    });
+  };
+
+  const handleChange = (value: string) => {
+    const newSelected = sources.find((s) => s.id === value)!;
+
+    setSelectedSource({
+      id: newSelected.id,
+      title: newSelected.title ?? "Text",
+    });
+
+    setMessages([...newSelected.messages]);
+  };
+
+  useEffect(() => {
+    fetchSources();
+  }, []);
 
   return (
     <div className="flex h-full flex-col">
@@ -33,18 +66,22 @@ export function ChatWindow() {
         <h2 className="text-sm font-semibold text-zinc-200">Chat</h2>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-xs text-zinc-500">Model</span>
-          <Select value={model} onValueChange={setModel}>
+          <Select
+            value={selectedSource?.id}
+            onValueChange={handleChange}
+            disabled={isPending}
+          >
             <SelectTrigger className="h-7 w-48 border-zinc-700 bg-zinc-800 text-xs text-zinc-300">
-              <SelectValue />
+              <SelectValue placeholder="Loading..." />
             </SelectTrigger>
             <SelectContent className="border-zinc-700 bg-zinc-900">
-              {MODELS.map((m) => (
+              {sources.map((s) => (
                 <SelectItem
-                  key={m.value}
-                  value={m.value}
+                  key={s.id}
+                  value={s.id}
                   className="text-zinc-300 focus:bg-zinc-800 focus:text-zinc-100"
                 >
-                  {m.label}
+                  {s.title ?? "Text"}
                 </SelectItem>
               ))}
             </SelectContent>

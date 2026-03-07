@@ -1,15 +1,11 @@
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 
 export function SpinnerCustom({ isUploading }: { isUploading: boolean }) {
+  if (!isUploading) return null;
+
   return (
-    <div
-      className={cn(
-        `flex items-center gap-6`,
-        `${isUploading ? "hidden" : ""}}`,
-      )}
-    >
-      <Spinner className="size-6" />
+    <div className="flex items-center gap-6 translate-x-60">
+      <Spinner className="size-6 text-white" />
     </div>
   );
 }
