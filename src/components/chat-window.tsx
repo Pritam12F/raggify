@@ -32,12 +32,14 @@ export function ChatWindow() {
       const entries = (await res.json()).entries as EntryWithMessages[];
 
       setSources(entries ?? []);
-      setSelectedSource({
-        id: entries[0].id,
-        title: entries[0].title ?? "Text",
-      });
+      if (entries.length) {
+        setSelectedSource({
+          id: entries[0].id,
+          title: entries[0].title ?? "Text",
+        });
 
-      setMessages([...entries[0].messages]);
+        setMessages([...entries[0].messages]);
+      }
     });
   };
 

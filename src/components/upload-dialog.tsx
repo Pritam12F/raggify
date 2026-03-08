@@ -89,6 +89,10 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       } catch (error) {
         if (axios.isAxiosError(error)) {
           const serverMessage = error.response?.data?.error;
+          if (error.status === 403) {
+            toast.error("Wehsite already indexed!");
+            return;
+          }
           toast.error(serverMessage ?? "Server error");
         } else {
           toast.error("Something went wrong");

@@ -10,8 +10,6 @@ export async function POST(req: Request) {
   const formData = await req.formData();
   const file = formData.get("pdf") as File;
 
-  console.log(file.name);
-
   const loader = new PDFLoader(file);
   const docs = await loader.load();
 
