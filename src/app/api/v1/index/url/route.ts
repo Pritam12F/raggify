@@ -4,14 +4,18 @@ import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { prisma } from "@/lib/prisma";
+import { Document } from "@langchain/core/documents";
+
+const MAX_PAGES = 80;
 
 export async function POST(req: NextRequest) {
   const { url } = await req.json();
   const origin = new URL(url).origin;
+  const collectionName = toCollectionName(origin);
 
   const entryExists = await prisma.entry.findFirst({
     where: {
-      title: origin,
+      title: collectionName,
       type: "URL",
     },
   });
@@ -27,25 +31,42 @@ export async function POST(req: NextRequest) {
     const pages = await crawl(origin);
 
     const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 500,
-      chunkOverlap: 100,
+      chunkSize: 1250,
+      chunkOverlap: 125,
     });
 
     const text = pages.map((p) => `URL: ${p.path}\n${p.content}`).join("\n\n");
     const chunks = await splitter.splitText(text);
+    const chunkSize = 25;
 
     const embeddings = new OllamaEmbeddings({
-      model: "mxbai-embed-large:latest",
+      model: "nomic-embed-text:latest",
       baseUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
     });
 
-    await QdrantVectorStore.fromTexts(chunks, {}, embeddings, {
-      url: process.env.QDRANT_URL ?? "http://localhost:6333",
-      collectionName: `${origin}`,
-    });
+    const firstBatch = chunks
+      .slice(0, chunkSize)
+      .map((text) => new Document({ pageContent: text }));
+
+    const store = await QdrantVectorStore.fromDocuments(
+      firstBatch,
+      embeddings,
+      {
+        url: process.env.QDRANT_URL ?? "http://localhost:6333",
+        collectionName: `${collectionName}`,
+      },
+    );
+
+    for (let i = chunkSize; i < chunks.length; i += chunkSize) {
+      const chunk = chunks
+        .slice(i, i + chunkSize)
+        .map((text) => new Document({ pageContent: text }));
+
+      await store.addDocuments(chunk);
+    }
 
     const { id } = await prisma.entry.create({
-      data: { type: "URL", title: origin },
+      data: { type: "URL", title: collectionName },
     });
 
     return NextResponse.json({
@@ -63,6 +84,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
+function toCollectionName(origin: string): string {
+  return origin
+    .replace(/https?:\/\//, "") // remove https:// or http://
+    .replace(/[^a-zA-Z0-9_-]/g, "_") // replace invalid chars with _
+    .slice(0, 255); // qdrant name length limit
+}
+
 async function crawl(
   baseUrl: string,
 ): Promise<{ path: string; content: string }[]> {
@@ -70,12 +98,12 @@ async function crawl(
   const results: { path: string; content: string }[] = [];
 
   async function visit(url: string) {
-    if (visited.has(url)) return;
-    visited.add(url);
+    if (visited.has(url) || visited.size >= MAX_PAGES) return;
 
+    visited.add(url);
     try {
       const content = await scrapeURL(url);
-      console.log({ path: url });
+
       results.push({ path: url, content: content.split("LINKS:")[0] });
       const links = extractLinks(content, baseUrl);
       for (const link of links) await visit(link);

@@ -3,8 +3,9 @@ import { NextResponse } from "next/server";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { OllamaEmbeddings } from "@langchain/ollama";
-import { QdrantVectorStore } from "@langchain/qdrant";
 import { prisma } from "@/lib/prisma";
+import { Document } from "@langchain/core/documents";
+import { QdrantVectorStore } from "@langchain/qdrant";
 
 export async function POST(req: Request) {
   const formData = await req.formData();
@@ -19,11 +20,14 @@ export async function POST(req: Request) {
   });
 
   const texts = await splitter.splitDocuments(docs);
+  const chunkArray: Document<Record<string, any>>[][] = [];
+  const chunkSize = 25;
+  const collectionName = file.name.replace(/[^a-zA-Z0-9_-]/g, "_");
 
   try {
     const pdfExists = await prisma.entry.findFirst({
       where: {
-        title: file.name,
+        title: collectionName,
       },
     });
 
@@ -35,16 +39,37 @@ export async function POST(req: Request) {
     }
 
     const embeddings = new OllamaEmbeddings({
-      model: "mxbai-embed-large:latest",
+      model: "nomic-embed-text:latest",
       baseUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
     });
 
-    await QdrantVectorStore.fromDocuments(texts, embeddings, {
-      url: process.env.QDRANT_URL ?? "http://localhost:6333",
-      collectionName: `${file.name}`,
-    });
+    while (true) {
+      if (!texts.length) {
+        break;
+      } else if (texts.length < chunkSize) {
+        const chunk = texts.splice(0, texts.length);
 
-    await prisma.entry.create({ data: { type: "PDF", title: file.name } });
+        chunkArray.push(chunk);
+      } else {
+        const chunk = texts.splice(0, chunkSize);
+        chunkArray.push(chunk);
+      }
+    }
+
+    const vectorStore = await QdrantVectorStore.fromDocuments(
+      chunkArray[0],
+      embeddings,
+      {
+        url: process.env.QDRANT_URL ?? "http://localhost:6333",
+        collectionName,
+      },
+    );
+
+    for (let i = 1; i < chunkArray.length; i++) {
+      await vectorStore.addDocuments(chunkArray[i]);
+    }
+
+    await prisma.entry.create({ data: { type: "PDF", title: collectionName } });
 
     return NextResponse.json({ success: "PDF entry was added" });
   } catch (error) {
