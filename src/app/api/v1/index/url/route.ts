@@ -5,11 +5,25 @@ import { OllamaEmbeddings } from "@langchain/ollama";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { prisma } from "@/lib/prisma";
 import { Document } from "@langchain/core/documents";
+import { z } from "zod";
 
 const MAX_PAGES = 80;
 
+const bodySchema = z.object({
+  url: z.string().url(),
+});
+
 export async function POST(req: NextRequest) {
-  const { url } = await req.json();
+  const parsed = bodySchema.safeParse(await req.json());
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.flatten().fieldErrors },
+      { status: 400 },
+    );
+  }
+
+  const { url } = parsed.data;
   const origin = new URL(url).origin;
   const collectionName = toCollectionName(origin);
 

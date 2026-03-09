@@ -2,18 +2,19 @@
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { RefObject } from "react";
 
 export type Message = {
-  id: string;
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "tool" | "system";
   content: string;
 };
 
 interface ChatMessageProps {
   message: Message;
+  ref: RefObject<HTMLDivElement | null>;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, ref }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -22,6 +23,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         "flex items-start gap-2",
         isUser ? "flex-row-reverse" : "flex-row",
       )}
+      ref={ref}
     >
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarFallback

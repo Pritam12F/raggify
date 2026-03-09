@@ -4,16 +4,29 @@ import { OllamaEmbeddings } from "@langchain/ollama";
 import { QdrantVectorStore } from "@langchain/qdrant";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+
+const bodySchema = z.object({
+  value: z.string().min(1),
+});
 
 export async function POST(request: Request) {
-  const { value } = await request.json();
+  const parsed = bodySchema.safeParse(await request.json());
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.flatten().fieldErrors },
+      { status: 400 },
+    );
+  }
+  const { value } = parsed.data;
 
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 100,
     chunkOverlap: 10,
   });
 
-  const texts = await splitter.splitText(value as string);
+  const texts = await splitter.splitText(value);
 
   try {
     const embeddings = new OllamaEmbeddings({

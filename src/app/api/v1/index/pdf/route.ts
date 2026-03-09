@@ -6,10 +6,26 @@ import { OllamaEmbeddings } from "@langchain/ollama";
 import { prisma } from "@/lib/prisma";
 import { Document } from "@langchain/core/documents";
 import { QdrantVectorStore } from "@langchain/qdrant";
+import { z } from "zod";
+
+const formSchema = z.object({
+  pdf: z.instanceof(File).refine((f) => f.type === "application/pdf", {
+    message: "File must be a PDF",
+  }),
+});
 
 export async function POST(req: Request) {
   const formData = await req.formData();
-  const file = formData.get("pdf") as File;
+  const parsed = formSchema.safeParse(Object.fromEntries(formData));
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.flatten().fieldErrors },
+      { status: 400 },
+    );
+  }
+
+  const file = parsed.data.pdf;
 
   const loader = new PDFLoader(file);
   const docs = await loader.load();

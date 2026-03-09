@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add zod)",
+      "Bash(pnpm add zod@^3)",
+      "Bash(grep -r \"UIMessage\" node_modules/ai/dist/*.d.ts)"
+    ]
+  }
+}
