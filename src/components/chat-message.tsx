@@ -2,6 +2,7 @@
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { ChatStatus } from "ai";
 import { RefObject } from "react";
 
 export type Message = {
@@ -12,9 +13,10 @@ export type Message = {
 interface ChatMessageProps {
   message: Message;
   ref: RefObject<HTMLDivElement | null>;
+  status: ChatStatus;
 }
 
-export function ChatMessage({ message, ref }: ChatMessageProps) {
+export function ChatMessage({ message, ref, status }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -39,7 +41,7 @@ export function ChatMessage({ message, ref }: ChatMessageProps) {
       </Avatar>
       <div
         className={cn(
-          "max-w-[70%] rounded-xl px-3 py-2 text-sm leading-relaxed",
+          "max-w-[70%] rounded-xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap",
           isUser
             ? "bg-violet-600 text-white shadow-md shadow-violet-900/30"
             : "bg-zinc-800 text-zinc-100",

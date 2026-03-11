@@ -24,9 +24,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { url } = parsed.data;
-  const origin = new URL(url).origin;
-  const collectionName = toCollectionName(origin);
-
+  const collectionName = toCollectionName(url);
   const entryExists = await prisma.entry.findFirst({
     where: {
       title: collectionName,
@@ -42,7 +40,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const pages = await crawl(origin);
+    const pages = await crawl(url);
+    pages.forEach((p) => {
+      console.log(`Crawled page: ${p.path}`);
+    });
 
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1250,
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     const chunkSize = 25;
 
     const embeddings = new OllamaEmbeddings({
-      model: "nomic-embed-text:latest",
+      model: "mxbai-embed-large:latest",
       baseUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
     });
 
@@ -100,26 +101,39 @@ export async function POST(req: NextRequest) {
 
 function toCollectionName(origin: string): string {
   return origin
-    .replace(/https?:\/\//, "") // remove https:// or http://
-    .replace(/[^a-zA-Z0-9_-]/g, "_") // replace invalid chars with _
-    .slice(0, 255); // qdrant name length limit
+    .replace(/https?:\/\//, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 255);
 }
 
+type CrawlScope = {
+  origin: string;
+  basePath: string;
+  startUrl: string;
+};
+
 async function crawl(
-  baseUrl: string,
+  inputUrl: string,
 ): Promise<{ path: string; content: string }[]> {
+  const scope = getCrawlScope(inputUrl);
   const visited = new Set<string>();
   const results: { path: string; content: string }[] = [];
 
   async function visit(url: string) {
-    if (visited.has(url) || visited.size >= MAX_PAGES) return;
+    if (
+      visited.has(url) ||
+      visited.size >= MAX_PAGES ||
+      !isWithinScope(url, scope)
+    )
+      return;
 
     visited.add(url);
+
     try {
       const content = await scrapeURL(url);
 
       results.push({ path: url, content: content.split("LINKS:")[0] });
-      const links = extractLinks(content, baseUrl);
+      const links = extractLinks(content, url, scope);
       for (const link of links) await visit(link);
     } catch (e) {
       console.warn(`Failed to scrape ${url}, skipping`);
@@ -127,19 +141,77 @@ async function crawl(
     }
   }
 
-  await visit(baseUrl);
+  await visit(scope.startUrl);
   return results;
 }
 
-function extractLinks(content: string, baseUrl: string): string[] {
-  const origin = new URL(baseUrl).origin;
+function getCrawlScope(inputUrl: string): CrawlScope {
+  const url = new URL(inputUrl);
+  url.hash = "";
+  url.search = "";
+
+  return {
+    origin: url.origin,
+    basePath: normalizePath(url.pathname),
+    startUrl: url.toString(),
+  };
+}
+
+function normalizePath(pathname: string): string {
+  if (pathname === "/") return pathname;
+
+  const normalized = pathname.replace(/\/+$/, "");
+  return normalized || "/";
+}
+
+function isWithinScope(url: string, scope: CrawlScope): boolean {
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.origin !== scope.origin) return false;
+
+  const pathname = normalizePath(parsedUrl.pathname);
+
+  if (scope.basePath === "/") return true;
+
+  return (
+    pathname === scope.basePath || pathname.startsWith(`${scope.basePath}/`)
+  );
+}
+
+function extractLinks(
+  content: string,
+  currentUrl: string,
+  scope: CrawlScope,
+): string[] {
   const linksPart = content.split("LINKS:")[1] ?? "";
 
   return linksPart
-    .split(" ")
-    .filter((h) => h.startsWith("/") && h !== "/")
-    .map((h) => `${origin}${h}`)
+    .split(/\s+/)
+    .map((href) => toScopedUrl(href, currentUrl, scope))
+    .filter((href): href is string => Boolean(href))
     .filter((url, i, arr) => arr.indexOf(url) === i);
+}
+
+function toScopedUrl(
+  href: string,
+  currentUrl: string,
+  scope: CrawlScope,
+): string | null {
+  if (!href) return null;
+
+  try {
+    const resolvedUrl = new URL(href, currentUrl);
+
+    if (!["http:", "https:"].includes(resolvedUrl.protocol)) return null;
+
+    resolvedUrl.hash = "";
+
+    if (!isWithinScope(resolvedUrl.toString(), scope)) return null;
+
+    return resolvedUrl.toString();
+  } catch {
+    return null;
+  }
 }
 
 async function scrapeURL(url: string): Promise<string> {

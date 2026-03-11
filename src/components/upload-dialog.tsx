@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useContext, useState } from "react";
+import { ChangeEvent, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,7 @@ import { Upload, Link } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { isValidHttpUrl } from "@/lib/check-url";
-import { LoadingContext } from "@/context/loading";
+import { useLoadingContext } from "@/context/loading";
 
 interface UploadDialogProps {
   open: boolean;
@@ -26,7 +26,12 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [tab, setTab] = useState<"pdf" | "url">("pdf");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const context = useContext(LoadingContext);
+  const {
+    isFilePending,
+    isURLPending,
+    startFileTransition,
+    startURLTransition,
+  } = useLoadingContext();
 
   const handleClose = () => {
     onOpenChange(false);
@@ -35,17 +40,21 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   };
 
   const uploadFile = () => {
-    context?.startFileTransition(async () => {
+    startFileTransition(async () => {
       const formData = new FormData();
 
       formData.append("pdf", file!);
 
       try {
+        const loadingToast = toast.loading("indexing pdf..");
+
         await axios.post("/api/v1/index/pdf", formData, {
           headers: {
             "Content-Type": "multipart/form-data",
           },
         });
+
+        toast.dismiss(loadingToast);
 
         toast.success("PDF was indexed!");
       } catch (error) {
@@ -75,7 +84,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   };
 
   const uploadURL = () => {
-    context?.startURLTransition(async () => {
+    startURLTransition(async () => {
       if (!isValidHttpUrl(url)) {
         toast.error("Invalid url");
 
@@ -83,7 +92,10 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
       }
 
       try {
+        const loadingToast = toast.loading("indexing website..");
         await axios.post("/api/v1/index/url", { url });
+
+        toast.dismiss(loadingToast);
 
         toast.success("Website was indexed");
       } catch (error) {
@@ -183,9 +195,7 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
           <Button
             className="bg-violet-600 text-white hover:bg-violet-500"
             disabled={
-              tab === "pdf"
-                ? !file || context?.isFilePending
-                : !url || context?.isURLPending
+              tab === "pdf" ? !file || isFilePending : !url || isURLPending
             }
             onClick={() => {
               if (tab === "pdf") {
@@ -198,10 +208,10 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
             }}
           >
             {tab === "pdf"
-              ? context?.isFilePending
+              ? isFilePending
                 ? "Uploading..."
                 : "Upload PDF"
-              : context?.isURLPending
+              : isURLPending
                 ? "Uploading..."
                 : "Index URL"}
           </Button>

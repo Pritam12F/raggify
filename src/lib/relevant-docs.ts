@@ -3,7 +3,7 @@ import { QdrantVectorStore } from "@langchain/qdrant";
 
 export async function getRelevantDocs(userQuery: string, entry: string) {
   const embeddings = new OllamaEmbeddings({
-    model: "nomic-embed-text:latest",
+    model: "mxbai-embed-large:latest",
     baseUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
   });
 
@@ -15,7 +15,7 @@ export async function getRelevantDocs(userQuery: string, entry: string) {
     },
   );
 
-  const retriever = vectorStore.asRetriever({ k: 4 });
+  const retriever = vectorStore.asRetriever({ k: 5 });
 
   const docs = await retriever.invoke(userQuery);
 

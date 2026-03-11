@@ -51,19 +51,16 @@ export async function POST(req: Request) {
 
   const docs = await getRelevantDocs(userQuery, entry);
 
-  console.log("[chat] Retrieved docs length:", docs.length);
-  console.log("[chat] Docs preview:", docs.slice(0, 200));
-
   const ollama = createOllama({
     baseURL: "http://localhost:11434/api",
   });
-  const model = ollama("llama2:latest");
+  const model = ollama("llama3.2:1b");
 
   const result = streamText({
     model,
     system: generateSystemPrompt(docs),
     messages: await convertToModelMessages(messages),
-    temperature: 0.3,
+    temperature: 0.6,
     onFinish: async (e) => {
       await prisma.message.createMany({
         data: [

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
   try {
     const embeddings = new OllamaEmbeddings({
-      model: "qwen3-embedding:4b",
+      model: "mxbai-embed-large:latest",
       baseUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
     });
 

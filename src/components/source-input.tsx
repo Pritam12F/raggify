@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useState, useTransition } from "react";
+import { useCallback, useContext, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { UploadDialog } from "@/components/upload-dialog";
@@ -8,19 +8,20 @@ import { Upload } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { SpinnerCustom } from "./custom-spinner";
-import { LoadingContext } from "@/context/loading";
+import { LoadingContext, useLoadingContext } from "@/context/loading";
 
 export function SourceInput() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [value, setValue] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const { isTextPending: isPending, startTextTransition: startTransition } =
+    useLoadingContext();
   const context = useContext(LoadingContext);
 
   const onChange = (text: string) => {
     setValue(text);
   };
 
-  const onSubmit = () => {
+  const onSubmit = useCallback(() => {
     startTransition(async () => {
       if (value.length < 100) {
         toast.error("Input is too short");
@@ -28,7 +29,10 @@ export function SourceInput() {
       }
 
       try {
+        const id = toast.loading("Indexing text...");
         const res = await axios.post("/api/v1/index/text", { value });
+
+        toast.dismiss(id);
 
         if (res.status === 200) {
           toast.success("Text entry was added and indexed!");
@@ -44,7 +48,7 @@ export function SourceInput() {
         }
       }
     });
-  };
+  }, [value, startTransition]);
 
   return (
     <div className="flex h-full flex-col">

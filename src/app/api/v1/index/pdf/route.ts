@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     const embeddings = new OllamaEmbeddings({
-      model: "nomic-embed-text:latest",
+      model: "mxbai-embed-large:latest",
       baseUrl: process.env.OLLAMA_URL ?? "http://localhost:11434",
     });
 

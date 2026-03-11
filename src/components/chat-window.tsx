@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useTransition,
-  useEffect,
-  useCallback,
-  useRef,
-  ReactHTMLElement,
-  Ref,
-} from "react";
+import { useState, useTransition, useEffect, useCallback, useRef } from "react";
 import { ChatMessage } from "@/components/chat-message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -24,6 +16,8 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, UIMessage } from "ai";
+import { useLoadingContext } from "@/context/loading";
+import ThinkingIndicator from "./thinking-indicator";
 
 export type SelectedSourceType = {
   id: string;
@@ -37,6 +31,8 @@ export function ChatWindow() {
   const [chatVal, setChatVal] = useState("");
   const [selectedSource, setSelectedSource] = useState<SelectedSourceType>();
   const messageRef = useRef<HTMLDivElement>(null);
+  const { isFilePending, isURLPending, isTextPending } = useLoadingContext();
+  const thinkingAnimateVal = ["Thinking.", "Thinking..", "Thinking..."];
 
   // Fetch sources on mount
   useEffect(() => {
@@ -44,7 +40,7 @@ export function ChatWindow() {
       const res = await fetch("/api/v1/entries");
       const entries = (await res.json()).entries as Entry[];
       setSources(entries ?? []);
-      if (entries.length) {
+      if (entries.length && !selectedSource) {
         setSelectedSource({
           id: entries[0].id,
           title: entries[0].title ?? "Text",
@@ -54,9 +50,9 @@ export function ChatWindow() {
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isFilePending, isURLPending, isTextPending]);
 
-  const { sendMessage, messages, setMessages } = useChat({
+  const { sendMessage, messages, setMessages, status } = useChat({
     id: selectedSource?.id,
     transport: new DefaultChatTransport({ api: "/api/v1/chat" }),
   });
@@ -188,6 +184,7 @@ export function ChatWindow() {
               />
             ))
           )}
+          {status === "submitted" && <ThinkingIndicator />}
         </div>
       </ScrollArea>
 
